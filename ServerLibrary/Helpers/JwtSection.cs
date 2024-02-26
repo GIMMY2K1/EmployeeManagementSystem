@@ -1,6 +1,6 @@
 ﻿namespace ServerLibrary.Helpers;
 
-public interface JwtSection
+public class JwtSection
 {
     public string? Key { get; set; }
     public string? Issuer { get; set; }

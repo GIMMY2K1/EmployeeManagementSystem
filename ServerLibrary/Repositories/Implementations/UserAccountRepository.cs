@@ -3,9 +3,14 @@ using BaseLibrary.Entities;
 using BaseLibrary.Responses;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using ServerLibrary.Data;
 using ServerLibrary.Helpers;
 using ServerLibrary.Repositories.Contracts;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using Constants = ServerLibrary.Helpers.Constants;
 
 namespace ServerLibrary.Repositories.Implementations;
@@ -19,6 +24,7 @@ public class UserAccountRepository(IOptions<JwtSection> config, AppDbContext app
         var checkUser = await FindUserByEmail(user.Email);
         if (checkUser != null) return new GeneralResponse(false, "User registered already");
 
+        //save User
         var applicationUser = await AddToDatabase(new ApplicationUser()
         {
             Id = Guid.NewGuid().ToString(),
@@ -36,6 +42,12 @@ public class UserAccountRepository(IOptions<JwtSection> config, AppDbContext app
                 Id = Guid.NewGuid().ToString(),
                 Name = Constants.Admin
             });
+            await AddToDatabase(new UserRole()
+            {
+                Id = Guid.NewGuid().ToString(),
+                RoleId = createAdminRole.Id,
+                UserId = applicationUser.Id
+            });
             return new GeneralResponse(true, "Account created!");
         }
 
@@ -46,7 +58,7 @@ public class UserAccountRepository(IOptions<JwtSection> config, AppDbContext app
             response = await AddToDatabase(new SystemRole()
             {
                 Id = Guid.NewGuid().ToString(),
-                Name = Constants.User
+                Name = Constants.Admin
             });
             await AddToDatabase(new UserRole()
             {
@@ -67,10 +79,49 @@ public class UserAccountRepository(IOptions<JwtSection> config, AppDbContext app
         return new GeneralResponse(true, "Account created!");
     }
 
-    public Task<LoginResponse> SignInAsync(Login user)
+    public async Task<LoginResponse> SignInAsync(Login user)
     {
-        throw new NotImplementedException();
+        if (user is null) return new LoginResponse(false, "Model is empty");
+
+        var applicationUser = await FindUserByEmail(user.Email!);
+        if (applicationUser is null) return new LoginResponse(false, "User not found");
+
+        if (!BCrypt.Net.BCrypt.Verify(user.Password, applicationUser.Password))
+            return new LoginResponse(false, "Email/Password not valid");
+
+        var getUserRoles = await appDbContext.UserRoles.FirstOrDefaultAsync(_ => _.UserId == applicationUser.Id);
+        if (getUserRoles is null) return new LoginResponse(false, "User role not found (1)");
+
+        var getRoleName = await appDbContext.SystemRoles.FirstOrDefaultAsync(_ => _.Id == getUserRoles.RoleId);
+        if (getRoleName is null) return new LoginResponse(false, "User Role not found (2)");
+
+        string jwtToken = GenerateToken(applicationUser, getRoleName!.Name!);
+        string refreshToken = GenerateRefreshToken();
+        return new LoginResponse(true, "Login successfully", jwtToken, refreshToken);
     }
+
+    private string GenerateToken(ApplicationUser user, string role)
+    {
+        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config.Value.Key!));
+        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+        var userClaims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, user.Id),
+            new Claim(ClaimTypes.Name, user.FullName!),
+            new Claim(ClaimTypes.Email, user.Email!),
+            new Claim(ClaimTypes.Role, role)
+        };
+        var token = new JwtSecurityToken(
+            issuer: config.Value.Issuer,
+            audience: config.Value.Audience,
+            claims: userClaims,
+            expires: DateTime.Now.AddDays(1),
+            signingCredentials: credentials
+            );
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    private static String GenerateRefreshToken() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
     private async Task<ApplicationUser> FindUserByEmail(string email) =>
         await appDbContext.ApplicationUsers.FirstOrDefaultAsync(_ => _.Email!.ToLower()!.Equals(email!.ToLower()));
