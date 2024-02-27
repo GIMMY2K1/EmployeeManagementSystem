@@ -11,7 +11,7 @@ public class UserAccountService : IUserAccountService
         throw new NotImplementedException();
     }
 
-    public Task<WeatherForecast[]> GetWeatherForecast()
+    public Task<LoginResponse> SignInAsync(Login user)
     {
         throw new NotImplementedException();
     }
@@ -21,7 +21,7 @@ public class UserAccountService : IUserAccountService
         throw new NotImplementedException();
     }
 
-    public Task<LoginResponse> SignInAsync(Login user)
+    public Task<WeatherForecast[]> GetWeatherForecast()
     {
         throw new NotImplementedException();
     }
