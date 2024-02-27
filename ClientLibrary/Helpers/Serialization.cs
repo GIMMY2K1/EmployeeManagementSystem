@@ -2,7 +2,7 @@
 
 namespace ClientLibrary.Helpers;
 
-public class Serialization
+public class Serializations
 {
     public static string SerializeObj<T>(T modelObject) => JsonSerializer.Serialize(modelObject);
     public static T DeserializeJsonString<T>(string jsonString) => JsonSerializer.Deserialize<T>(jsonString);
