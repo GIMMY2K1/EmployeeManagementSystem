@@ -2,12 +2,12 @@
 
 namespace ClientLibrary.Helpers;
 
-public class GetHttpClient
+public class GetHttpClient(IHttpClientFactory httpClientFactory, LocalStorageService localStorageService)
 {
 
     private const string HeaderKey = "Authentication";
 
-    public async Task<HttpClient> GetPrivateHttpClient(IHttpClientFactory httpClientFactory, LocalStorageService localStorageService)
+    public async Task<HttpClient> GetPrivateHttpClient()
     {
         var client = httpClientFactory.CreateClient("SystemApiClient");
         var stringToken = await localStorageService.GetToken();
@@ -17,6 +17,13 @@ public class GetHttpClient
         if (deserializeToken == null) return client;
 
         client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", deserializeToken.Token);
+        return client;
+    }
+
+    public HttpClient GetPublicHttpClient()
+    {
+        var client = httpClientFactory.CreateClient("SystemApiClient");
+        client.DefaultRequestHeaders.Remove(HeaderKey);
         return client;
     }
 
