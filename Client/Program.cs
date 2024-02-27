@@ -13,7 +13,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddHttpClient("SystemApiClient", client =>
 {
-    client.BaseAddress = new Uri("https://localhost:7294");
+    client.BaseAddress = new Uri("https://localhost:7294;http://localhost:5194");
 });
 //builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://localhost:7294") });
 
